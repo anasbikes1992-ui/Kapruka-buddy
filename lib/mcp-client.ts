@@ -132,12 +132,13 @@ function parsePayload<T>(payload: unknown, fallback: T | null): T | null {
 async function postToolCall<T>(name: string, args: Record<string, unknown>): Promise<T | null> {
   const mcpUrl = process.env.KAPRUKA_MCP_URL;
   if (!mcpUrl) {
+    console.warn(`[MCP] Endpoint not configured, using mock data`);
     return null;
   }
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 12000); // Increased from 8s to 12s
 
     const response = await fetch(mcpUrl, {
       method: "POST",
@@ -158,6 +159,7 @@ async function postToolCall<T>(name: string, args: Record<string, unknown>): Pro
     }).finally(() => clearTimeout(timeout));
 
     if (!response.ok) {
+      console.warn(`[MCP] Request failed with status ${response.status}, using mock data`);
       return null;
     }
 
@@ -167,6 +169,7 @@ async function postToolCall<T>(name: string, args: Record<string, unknown>): Pro
     };
 
     if (json.error) {
+      console.warn(`[MCP] Error: ${json.error.message}, using mock data`);
       return null;
     }
 
@@ -178,8 +181,10 @@ async function postToolCall<T>(name: string, args: Record<string, unknown>): Pro
       return parsePayload<T>(json.result.content, null as T | null);
     }
 
+    console.warn(`[MCP] No result in response, using mock data`);
     return null;
-  } catch {
+  } catch (error) {
+    console.warn(`[MCP] Request failed: ${error instanceof Error ? error.message : String(error)}, using mock data`);
     return null;
   }
 }
@@ -200,11 +205,32 @@ function mockSearchProducts(query: string): Product[] {
     .split(/\s+/)
     .filter((word) => word.length > 2 && !stopwords.has(word));
 
-  return MOCK_PRODUCTS.filter((product) => {
+  if (keywords.length === 0) {
+    return MOCK_PRODUCTS.slice(0, 6);
+  }
+
+  // First pass: exact keyword matching
+  let results = MOCK_PRODUCTS.filter((product) => {
     const haystack = `${product.name} ${product.category} ${product.description ?? ""}`.toLowerCase();
-    // Match if ANY keyword is found in the haystack
-    return keywords.length === 0 || keywords.some((keyword) => haystack.includes(keyword));
-  }).slice(0, 8);
+    return keywords.some((keyword) => haystack.includes(keyword));
+  });
+
+  // Second pass: if no exact matches, do partial matching (e.g., "bir" matches "birthday")
+  if (results.length === 0) {
+    results = MOCK_PRODUCTS.filter((product) => {
+      const haystack = `${product.name} ${product.category} ${product.description ?? ""}`.toLowerCase();
+      return keywords.some((keyword) => 
+        keyword.length > 2 && haystack.includes(keyword.substring(0, 3))
+      );
+    });
+  }
+
+  // Third pass: if still no matches, return top recommendations
+  if (results.length === 0) {
+    return MOCK_PRODUCTS.slice(0, 6);
+  }
+
+  return results.slice(0, 8);
 }
 
 function mockDelivery(city: string): DeliveryQuote {
