@@ -33,6 +33,13 @@
 
 * {
   border-color: var(--border);
+  /* Smooth transitions for color changes */
+  @apply transition-colors duration-200;
+}
+
+/* Remove transition from motion components to avoid conflicts */
+[data-motion] {
+  @apply !transition-none;
 }
 
 body {
@@ -46,6 +53,15 @@ body {
   font-family: var(--font-body), "Noto Sans Sinhala", sans-serif;
 }
 
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(circle at 20% 10%, rgba(255, 143, 78, 0.15), transparent 35%),
+      radial-gradient(circle at 78% 8%, rgba(230, 111, 44, 0.1), transparent 32%),
+      linear-gradient(160deg, var(--background), #2a2420 52%, #1f1a15 100%);
+  }
+}
+
 h1,
 h2,
 h3,
@@ -54,15 +70,37 @@ h4 {
   letter-spacing: -0.02em;
 }
 
+/* Glass morphism effect */
 .glass {
   background: color-mix(in srgb, var(--surface) 85%, white 15%);
   border: 1px solid color-mix(in srgb, var(--border) 85%, white 15%);
   box-shadow: var(--card-shadow);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
-.app-shell {
-  position: relative;
+@media (prefers-color-scheme: dark) {
+  .glass {
+    background: color-mix(in srgb, var(--surface) 90%, black 10%);
+    border: 1px solid color-mix(in srgb, var(--border) 70%, black 30%);
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .app-shell::before,

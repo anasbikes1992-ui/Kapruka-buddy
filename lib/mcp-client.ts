@@ -190,9 +190,15 @@ function mockSearchProducts(query: string): Product[] {
     return MOCK_PRODUCTS.slice(0, 6);
   }
 
+  // Extract keywords from query (split by spaces and filter short words)
+  const keywords = normalized
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !["can", "get", "for", "the", "you", "got"].includes(word));
+
   return MOCK_PRODUCTS.filter((product) => {
     const haystack = `${product.name} ${product.category} ${product.description ?? ""}`.toLowerCase();
-    return haystack.includes(normalized);
+    // Match if ANY keyword is found in the haystack
+    return keywords.length === 0 || keywords.some((keyword) => haystack.includes(keyword));
   }).slice(0, 8);
 }
 
