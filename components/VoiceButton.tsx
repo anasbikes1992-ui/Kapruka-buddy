@@ -54,9 +54,11 @@ export function VoiceButton({ onTranscript }: VoiceButtonProps) {
 
   useEffect(() => {
     if (!recognitionCtor) {
+      console.warn("[Voice] Speech Recognition API not available");
       return;
     }
 
+    console.log("[Voice] Initializing speech recognition");
     const recognition = new recognitionCtor();
     recognition.lang = "en-LK";
     recognition.interimResults = false;
@@ -66,12 +68,22 @@ export function VoiceButton({ onTranscript }: VoiceButtonProps) {
     recognition.onresult = (event: SimpleSpeechRecognitionEvent) => {
       const transcript = event.results?.[0]?.[0]?.transcript;
       if (transcript) {
+        console.log(`[Voice] Recognized: "${transcript}"`);
         onTranscript(transcript);
+      } else {
+        console.warn("[Voice] No transcript in result");
       }
     };
 
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => {
+      console.log("[Voice] Recognition ended");
+      setIsListening(false);
+    };
+    
+    recognition.onerror = () => {
+      console.error(`[Voice] Recognition error occurred`);
+      setIsListening(false);
+    };
 
     recognitionRef.current = recognition;
 
@@ -87,17 +99,24 @@ export function VoiceButton({ onTranscript }: VoiceButtonProps) {
 
   const toggleListening = () => {
     if (!recognitionRef.current) {
+      console.warn("[Voice] Recognition not initialized");
       return;
     }
 
     if (isListening) {
+      console.log("[Voice] Stopping listening");
       recognitionRef.current.stop();
       setIsListening(false);
       return;
     }
 
-    recognitionRef.current.start();
-    setIsListening(true);
+    console.log("[Voice] Starting listening...");
+    try {
+      recognitionRef.current.start();
+      setIsListening(true);
+    } catch (error) {
+      console.error("[Voice] Error starting:", error instanceof Error ? error.message : String(error));
+    }
   };
 
   return (

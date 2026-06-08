@@ -6,6 +6,11 @@ import {
   type Product,
   type TrackingResult,
 } from "@/lib/types";
+import {
+  filterByPrice,
+  searchByCategory,
+  searchProducts as utilSearchProducts,
+} from "@/lib/search-utils";
 
 const MOCK_PRODUCTS: Product[] = [
   {
@@ -190,47 +195,22 @@ async function postToolCall<T>(name: string, args: Record<string, unknown>): Pro
 }
 
 function mockSearchProducts(query: string): Product[] {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) {
-    return MOCK_PRODUCTS.slice(0, 6);
-  }
+  // Use improved search utilities with fuzzy matching and multiple strategies
+  const results = utilSearchProducts(MOCK_PRODUCTS, query);
+  console.log(`[Search] Query: "${query}" → Found ${results.length} products`);
+  return results;
+}
 
-  // Extract keywords from query (split by spaces and filter noise words)
-  const stopwords = new Set([
-    "can", "get", "for", "the", "you", "got", "what", "have", "do", "i", "a", "an",
-    "is", "are", "to", "me", "my", "with", "from", "at", "by", "on", "in", "of",
-  ]);
-  
-  const keywords = normalized
-    .split(/\s+/)
-    .filter((word) => word.length > 2 && !stopwords.has(word));
+function mockSearchByCategory(category: string): Product[] {
+  const results = searchByCategory(MOCK_PRODUCTS, category);
+  console.log(`[Search] Category: "${category}" → Found ${results.length} products`);
+  return results;
+}
 
-  if (keywords.length === 0) {
-    return MOCK_PRODUCTS.slice(0, 6);
-  }
-
-  // First pass: exact keyword matching
-  let results = MOCK_PRODUCTS.filter((product) => {
-    const haystack = `${product.name} ${product.category} ${product.description ?? ""}`.toLowerCase();
-    return keywords.some((keyword) => haystack.includes(keyword));
-  });
-
-  // Second pass: if no exact matches, do partial matching (e.g., "bir" matches "birthday")
-  if (results.length === 0) {
-    results = MOCK_PRODUCTS.filter((product) => {
-      const haystack = `${product.name} ${product.category} ${product.description ?? ""}`.toLowerCase();
-      return keywords.some((keyword) => 
-        keyword.length > 2 && haystack.includes(keyword.substring(0, 3))
-      );
-    });
-  }
-
-  // Third pass: if still no matches, return top recommendations
-  if (results.length === 0) {
-    return MOCK_PRODUCTS.slice(0, 6);
-  }
-
-  return results.slice(0, 8);
+function mockFilterByPrice(minPrice: number, maxPrice: number): Product[] {
+  const results = filterByPrice(MOCK_PRODUCTS, minPrice, maxPrice);
+  console.log(`[Search] Price range: LKR ${minPrice}-${maxPrice} → Found ${results.length} products`);
+  return results;
 }
 
 function mockDelivery(city: string): DeliveryQuote {
@@ -248,6 +228,16 @@ export class KaprukaClient {
   async searchProducts(query: string): Promise<Product[]> {
     const live = await postToolCall<Product[]>("kapruka_search_products", { query });
     return live ?? mockSearchProducts(query);
+  }
+
+  async searchByCategory(category: string): Promise<Product[]> {
+    const live = await postToolCall<Product[]>("kapruka_search_by_category", { category });
+    return live ?? mockSearchByCategory(category);
+  }
+
+  async filterByPrice(minPrice: number, maxPrice: number): Promise<Product[]> {
+    const live = await postToolCall<Product[]>("kapruka_filter_by_price", { minPrice, maxPrice });
+    return live ?? mockFilterByPrice(minPrice, maxPrice);
   }
 
   async getProduct(productId: string): Promise<Product | null> {

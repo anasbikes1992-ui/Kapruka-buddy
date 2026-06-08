@@ -1,6 +1,6 @@
 "use client";
 
-import { ShoppingCart } from "lucide-react";
+import { Heart, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 
@@ -11,16 +11,18 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 interface ProductCardProps {
   product: Product;
   onAddToCart: (product: Product) => void;
+  onToggleWishlist?: (product: Product) => void;
+  isInWishlist?: boolean;
 }
 
-export function ProductCard({ product, onAddToCart }: ProductCardProps) {
+export function ProductCard({ product, onAddToCart, onToggleWishlist, isInWishlist }: ProductCardProps) {
   const prefersReducedMotion = useReducedMotion();
   const cardVariant = getMotionVariant(MOTION_VARIANTS.staggerChild, prefersReducedMotion);
 
   return (
     <motion.article
       variants={cardVariant}
-      className="glass group flex h-full min-w-[250px] flex-col overflow-hidden rounded-3xl transition-shadow duration-300 hover:shadow-lg"
+      className="glass group relative flex h-full min-w-[250px] flex-col overflow-hidden rounded-3xl transition-shadow duration-300 hover:shadow-lg"
     >
       <div className="relative h-44 w-full bg-gradient-to-br from-orange-100/70 to-orange-50/70 dark:from-orange-950/30 dark:to-orange-900/20">
         {product.imageUrl ? (
@@ -28,9 +30,10 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             src={product.imageUrl}
             alt={product.name}
             fill
-            unoptimized
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 768px) 100vw, 320px"
+            priority={false}
+            loading="lazy"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="grid h-full w-full place-items-center text-sm text-stone-500">
@@ -45,6 +48,21 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
         >
           {product.id}
         </motion.div>
+        {onToggleWishlist ? (
+          <motion.button
+            type="button"
+            onClick={() => onToggleWishlist(product)}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="absolute right-3 top-3 rounded-full bg-white/80 p-2 text-orange-600 transition hover:bg-white dark:bg-stone-700/80 dark:text-orange-400"
+            aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
+          >
+            <Heart
+              className="h-4 w-4"
+              fill={isInWishlist ? "currentColor" : "none"}
+            />
+          </motion.button>
+        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col gap-3 p-4">

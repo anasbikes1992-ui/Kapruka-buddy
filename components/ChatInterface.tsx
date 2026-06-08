@@ -2,12 +2,14 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, MessageCircleHeart, Send, ShoppingBasket, Volume2 } from "lucide-react";
+import { Loader2, MessageCircleHeart, Send, ShoppingBasket, Volume2, Heart, Sliders } from "lucide-react";
 
 import { CartDrawer } from "@/components/CartDrawer";
 import { DeliveryQuoteCard } from "@/components/DeliveryQuote";
 import { ProductCarousel } from "@/components/ProductCarousel";
 import { VoiceButton } from "@/components/VoiceButton";
+import { useWishlist } from "@/hooks/useWishlist";
+import { usePriceFilter } from "@/hooks/usePriceFilter";
 import {
 	type ChatMessage,
 	type ConversationState,
@@ -46,6 +48,9 @@ function resolveLocale(messages: ChatMessage[]): ConversationState["locale"] {
 }
 
 export function ChatInterface() {
+	const { wishlist, isInWishlist, toggleWishlist } = useWishlist();
+	const { minPrice, maxPrice, handleMinPriceChange, handleMaxPriceChange, resetPrice, isFiltered } = usePriceFilter();
+	const [showFilters, setShowFilters] = useState(false);
 	const [messages, setMessages] = useState<ChatMessage[]>(() => {
 		if (typeof window === "undefined") {
 			return [
@@ -194,12 +199,15 @@ export function ChatInterface() {
 				if (data.state) {
 					setState(data.state);
 				}
-			} catch {
+			} catch (error) {
+				const errorMsg = error instanceof Error ? error.message : String(error);
+				console.error("[Chat] Error:", errorMsg);
+				
 				setMessages((prev) => [
 					...prev,
 					createMessage(
 						"assistant",
-						"I hit a snag talking to Kapruka services. Please try once more, machan.",
+						"Looks like I hit a snag. Please check your internet connection and try again. 🌐",
 					),
 				]);
 			} finally {
@@ -242,6 +250,19 @@ export function ChatInterface() {
 			createMessage("assistant", `${product.name} added to your cart. Say checkout when you are ready.`),
 		]);
 	};
+
+	// Filter products by price range
+	const filteredProducts = useMemo(() => {
+		if (!isFiltered) {
+			return products;
+		}
+		return products.filter((p) => p.price >= minPrice && p.price <= maxPrice);
+	}, [products, minPrice, maxPrice, isFiltered]);
+
+	// Convert wishlist to Set for faster lookup
+	const wishlistIds = useMemo(() => {
+		return new Set(wishlist.map((p) => p.id));
+	}, [wishlist]);
 
 	return (
 		<div className="app-shell relative mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-5 px-4 py-5 md:px-6">
@@ -341,7 +362,106 @@ export function ChatInterface() {
 				</section>
 
 				<section className="space-y-4">
-					<ProductCarousel products={products} onAddToCart={handleAddToCart} />
+					{/* Price Filter UI */}
+					<motion.div
+						initial={{ opacity: 0, y: -10 }}
+						animate={{ opacity: 1, y: 0 }}
+						className="glass rounded-3xl p-4"
+					>
+						<button
+							type="button"
+							onClick={() => setShowFilters(!showFilters)}
+							className="flex w-full items-center justify-between rounded-lg font-medium transition hover:opacity-80"
+						>
+							<span className="flex items-center gap-2">
+								<Sliders className="h-4 w-4" />
+								Price Filter
+								{isFiltered ? (
+									<span className="ml-2 inline-block rounded-full bg-orange-600 px-2 py-0.5 text-xs text-white">
+										Active
+									</span>
+								) : null}
+							</span>
+							<span className="text-sm">{showFilters ? "Hide" : "Show"}</span>
+						</button>
+
+						<AnimatePresence>
+							{showFilters ? (
+								<motion.div
+									initial={{ opacity: 0, height: 0 }}
+									animate={{ opacity: 1, height: "auto" }}
+									exit={{ opacity: 0, height: 0 }}
+									className="mt-4 space-y-4 border-t border-stone-200 pt-4 dark:border-stone-700"
+								>
+									<div>
+										<label className="block text-sm font-medium">Min: LKR {minPrice.toLocaleString()}</label>
+										<input
+											type="range"
+											min="0"
+											max="20000"
+											step="100"
+											value={minPrice}
+											onChange={(e) => handleMinPriceChange(Number(e.target.value))}
+											className="w-full"
+										/>
+									</div>
+									<div>
+										<label className="block text-sm font-medium">Max: LKR {maxPrice.toLocaleString()}</label>
+										<input
+											type="range"
+											min="0"
+											max="20000"
+											step="100"
+											value={maxPrice}
+											onChange={(e) => handleMaxPriceChange(Number(e.target.value))}
+											className="w-full"
+										/>
+									</div>
+									{isFiltered ? (
+										<button
+											type="button"
+											onClick={resetPrice}
+											className="w-full rounded-lg border border-orange-600 px-3 py-2 text-sm font-medium text-orange-600 transition hover:bg-orange-50 dark:hover:bg-orange-950/20"
+										>
+											Reset filters
+										</button>
+									) : null}
+								</motion.div>
+							) : null}
+						</AnimatePresence>
+					</motion.div>
+
+					{/* Wishlist Section */}
+					{wishlist.length > 0 ? (
+						<motion.div
+							initial={{ opacity: 0, y: -10 }}
+							animate={{ opacity: 1, y: 0 }}
+							className="glass rounded-3xl p-4"
+						>
+							<h2 className="flex items-center gap-2 font-semibold">
+								<Heart className="h-4 w-4 fill-current text-red-600" />
+								Wishlist ({wishlist.length})
+							</h2>
+							<div className="mt-2 space-y-1 text-xs text-stone-600 dark:text-stone-400">
+								{wishlist.slice(0, 3).map((p) => (
+									<div key={p.id} className="flex justify-between">
+										<span>{p.name}</span>
+										<span>LKR {p.price.toLocaleString()}</span>
+									</div>
+								))}
+								{wishlist.length > 3 ? (
+									<p className="pt-2 text-center text-stone-500">+{wishlist.length - 3} more</p>
+								) : null}
+							</div>
+						</motion.div>
+					) : null}
+
+					<ProductCarousel
+						products={filteredProducts}
+						onAddToCart={handleAddToCart}
+						onToggleWishlist={toggleWishlist}
+						wishlistIds={wishlistIds}
+					/>
 
 					{deliveryQuote ? <DeliveryQuoteCard quote={deliveryQuote} /> : null}
 
